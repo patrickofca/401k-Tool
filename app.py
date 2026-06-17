@@ -13,18 +13,15 @@ CONFIG_FILE = "portfolio_config.json"
 
 def load_saved_data():
     default_data = {
-        "portfolio_value": 838704,
-        "years_to_retirement": 15,
+        "portfolio_value": 100000,
+        "years_to_retirement": 20,
         "pullback_trigger": 10,
-        "monthly_contrib": 1000,
-        "company_match": 4000,
+        "monthly_contrib": 500,
+        "company_match": 2000,
         "allocations": [
-            {"Ticker": "SPY", "Your Allocation %": 39.42},
-            {"Ticker": "MDY", "Your Allocation %": 17.49},
-            {"Ticker": "VXUS", "Your Allocation %": 16.12},
-            {"Ticker": "AGG", "Your Allocation %": 15.67},
-            {"Ticker": "BIL", "Your Allocation %": 5.62},
-            {"Ticker": "COST", "Your Allocation %": 4.53}
+            {"Ticker": "SPY", "Your Allocation %": 60.0},
+            {"Ticker": "AGG", "Your Allocation %": 30.0},
+            {"Ticker": "BIL", "Your Allocation %": 10.0}
         ]
     }
     if os.path.exists(CONFIG_FILE):
