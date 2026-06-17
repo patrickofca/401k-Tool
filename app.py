@@ -93,14 +93,22 @@ active_tickers = edited_alloc_df["Ticker"].tolist()
 
 SINGLE_STOCK_CAP_PCT = 5.0
 INDEX_FUNDS = ['SPY', 'MDY', 'VXUS', 'QQQ', 'VTI', 'IWM', 'ITOT', 'SCHB']
+BOND_TICKERS = ['AGG', 'BND', 'BIL', 'IEF', 'TLT', 'SHY', 'LQD', 'MUB', 'VCSH', 'VGSH', 'VCIT']
+
+
+@st.cache_data(ttl=3600)
+def fetch_market_data(tickers_tuple):
+    data = yf.download(list(tickers_tuple), period="max", progress=False)['Close']
+    if isinstance(data, pd.Series):
+        data = data.to_frame(name=tickers_tuple[0])
+    data = data.dropna(axis=1, how='all')
+    returns = data.pct_change().dropna()
+    return data, returns
+
 
 if active_tickers:
-    with st.spinner("Scraping metrics from Yahoo Finance..."):
-        data = yf.download(active_tickers, period="max", progress=False)['Close']
-        if isinstance(data, pd.Series):
-            data = data.to_frame(name=active_tickers[0])
-        data = data.dropna(axis=1, how='all')
-        returns = data.pct_change().dropna()
+    with st.spinner("Fetching full market history..."):
+        data, returns = fetch_market_data(tuple(active_tickers))
 
     # Calculate rolling dip metrics
     live_drawdowns = {}
@@ -121,7 +129,9 @@ if active_tickers:
     # --- 50th PERCENTILE GROWTH & REALLOCATION MATHEMATICS ---
     weight_map = dict(zip(edited_alloc_df["Ticker"], edited_alloc_df["Your Allocation %"]))
     valid_tickers = [t for t in active_tickers if t in returns.columns]
-    weights = np.array([weight_map.get(t, 0.0) for t in valid_tickers]) / 100
+    raw_weights = np.array([weight_map.get(t, 0.0) for t in valid_tickers])
+    total_weight = raw_weights.sum()
+    weights = (raw_weights / total_weight) if total_weight > 0 else raw_weights
     returns_valid = returns[valid_tickers] if valid_tickers else returns
 
     if sum(weights) > 0:
@@ -156,19 +166,19 @@ if active_tickers:
         # Reallocation Calculator Logic
         st.subheader("📢 Automated 401k Reallocation Advice")
 
-        # Categorize defensive cash/bond pools vs growth equities based on your tickers
-        bond_proxies = ['AGG', 'BIL']
-        dipped_equities = [tk for tk, drop in live_drawdowns.items(
-        ) if drop <= -pullback_trigger and tk not in bond_proxies]
+        # Identify bond/defensive holdings from the live allocation table
+        bond_proxies = [tk for tk in active_tickers if tk in BOND_TICKERS]
+        dipped_equities = [tk for tk, drop in live_drawdowns.items()
+                           if drop <= -pullback_trigger and tk not in bond_proxies]
 
         if dipped_equities:
             st.error(f"🚨 TACTICAL ACTION REQUIRED: REALLOCATE INSTEAD OF HOLDING")
             st.write(
                 f"The following equity assets are heavily discounted: **{', '.join(dipped_equities)}**.")
 
-            # Math: Calculate how much defensive value to transfer based on 50th percentile expectations
+            # Use live allocation table — not stale saved config
             total_defensive_weight = sum(
-                [row['Your Allocation %'] for row in saved_config['allocations'] if row['Ticker'] in bond_proxies]) / 100
+                weight_map.get(tk, 0.0) for tk in bond_proxies) / 100
             current_defensive_pool = portfolio_value * total_defensive_weight
 
             # Rule: Allocate a tactical 25% chunk of your defensive dry-powder into the dipped funds
