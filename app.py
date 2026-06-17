@@ -96,7 +96,7 @@ INDEX_FUNDS = ['SPY', 'MDY', 'VXUS', 'QQQ', 'VTI', 'IWM', 'ITOT', 'SCHB']
 
 if active_tickers:
     with st.spinner("Scraping metrics from Yahoo Finance..."):
-        data = yf.download(active_tickers, period="5y", progress=False)['Close']
+        data = yf.download(active_tickers, period="max", progress=False)['Close']
         if isinstance(data, pd.Series):
             data = data.to_frame(name=active_tickers[0])
         data = data.dropna(axis=1, how='all')
